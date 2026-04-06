@@ -1,0 +1,48 @@
+name: Weekly Site Update
+
+on:
+  schedule:
+    # Every Sunday at 10:00 PM ET
+    # ET is UTC-5 (EST) or UTC-4 (EDT)
+    # Using 3:00 AM Monday UTC to cover EST (10pm Sun EST = 3am Mon UTC)
+    # and 2:00 AM Monday UTC to cover EDT (10pm Sun EDT = 2am Mon UTC)
+    # We use both to ensure it runs at ~10pm ET year-round
+    - cron: '0 2 * * 1'  # 10pm Sunday EDT (summer)
+    - cron: '0 3 * * 1'  # 10pm Sunday EST (winter)
+  workflow_dispatch: # Allow manual triggers
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject last-updated timestamp
+        run: |
+          TIMESTAMP=$(TZ='America/New_York' date +'%B %-d, %Y at %-I:%M %p ET')
+          sed -i "s|<span id=\"last-updated\"></span>|<span id=\"last-updated\">${TIMESTAMP}</span>|" index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
